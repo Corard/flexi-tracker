@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { Settings, Clock, ChevronRight } from "lucide-react";
 import { useStorage } from "@/hooks/use-storage";
 import { useShiftKey } from "@/hooks/use-shift-key";
@@ -300,10 +301,8 @@ export function FlexiTracker() {
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground mt-8">
-          All data stored locally |{" "}
-          <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">←</kbd>{" "}
-          <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">→</kbd> to navigate weeks | Hold{" "}
-          <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Shift</kbd> for decimal
+          All data stored locally | <Kbd>←</Kbd> <Kbd>→</Kbd> to navigate weeks | Hold{" "}
+          <Kbd>Shift</Kbd> for decimal
         </div>
       </div>
 
