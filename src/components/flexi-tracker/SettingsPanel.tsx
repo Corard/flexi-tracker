@@ -29,9 +29,10 @@ export function SettingsPanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [clearStep, setClearStep] = useState(0);
   const [confirmText, setConfirmText] = useState("");
-  const [importMode, setImportMode] = useState<"select" | "paste" | null>(null);
+  const [importMode, setImportMode] = useState<"select" | "paste" | "confirm" | null>(null);
   const [pasteText, setPasteText] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
+  const [pendingImportData, setPendingImportData] = useState<Partial<AppState> | null>(null);
 
   const handleClearClick = () => {
     setClearStep(1);
@@ -77,10 +78,9 @@ export function SettingsPanel({
       try {
         const data = JSON.parse(event.target?.result as string);
         if (data && typeof data === "object") {
-          onImport(data);
-          setImportMode(null);
+          setPendingImportData(data);
+          setImportMode("confirm");
           setImportError(null);
-          alert("Data imported successfully!");
         } else {
           setImportError("Invalid file format");
         }
@@ -96,11 +96,9 @@ export function SettingsPanel({
     try {
       const data = JSON.parse(pasteText);
       if (data && typeof data === "object") {
-        onImport(data);
-        setImportMode(null);
-        setPasteText("");
+        setPendingImportData(data);
+        setImportMode("confirm");
         setImportError(null);
-        alert("Data imported successfully!");
       } else {
         setImportError("Invalid JSON format");
       }
@@ -109,10 +107,21 @@ export function SettingsPanel({
     }
   };
 
+  const handleImportConfirm = () => {
+    if (pendingImportData) {
+      onImport(pendingImportData as AppState);
+      setImportMode(null);
+      setPasteText("");
+      setPendingImportData(null);
+      alert("Data imported successfully!");
+    }
+  };
+
   const handleImportCancel = () => {
     setImportMode(null);
     setPasteText("");
     setImportError(null);
+    setPendingImportData(null);
   };
 
   return (
@@ -315,6 +324,31 @@ export function SettingsPanel({
                     disabled={!pasteText.trim()}
                   >
                     Import
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {importMode === "confirm" && (
+              <div className="space-y-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-md">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-amber-600 dark:text-amber-400">
+                      Overwrite existing data?
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Importing will replace all your current entries, adjustments, and settings
+                      with the imported data.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={handleImportCancel}>
+                    Cancel
+                  </Button>
+                  <Button className="flex-1" onClick={handleImportConfirm}>
+                    Yes, Import
                   </Button>
                 </div>
               </div>
