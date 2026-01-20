@@ -50,6 +50,8 @@ export function FlexiTracker() {
           newDate.setDate(newDate.getDate() + 7);
           return newDate;
         });
+      } else if (e.key === "t" || e.key === "T") {
+        setCurrentDate(new Date());
       }
     };
 
@@ -301,8 +303,8 @@ export function FlexiTracker() {
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground mt-8">
-          All data stored locally | <Kbd>←</Kbd> <Kbd>→</Kbd> to navigate weeks | Hold{" "}
-          <Kbd>Shift</Kbd> for decimal
+          All data stored locally | <Kbd>←</Kbd> <Kbd>→</Kbd> navigate weeks | <Kbd>T</Kbd> today |
+          Hold <Kbd>Shift</Kbd> for decimal
         </div>
       </div>
 
