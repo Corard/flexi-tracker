@@ -1,4 +1,4 @@
-import { useState, useEffect, type KeyboardEvent } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -9,17 +9,17 @@ interface BreakInputProps {
 }
 
 export function BreakInput({ value, onChange, className }: BreakInputProps) {
-  const [local, setLocal] = useState(value?.toString() || "0");
+  // null = not editing, use prop value; string = editing, use local value
+  const [local, setLocal] = useState<string | null>(null);
+  const displayValue = local ?? (value?.toString() || "0");
 
-  useEffect(() => {
-    setLocal(value?.toString() || "0");
-  }, [value]);
+  const handleFocus = () => setLocal(value?.toString() || "0");
 
   const handleBlur = () => {
-    const num = parseInt(local, 10);
+    const num = parseInt(local || "0", 10);
     const valid = isNaN(num) ? 0 : Math.max(0, num);
     onChange(valid);
-    setLocal(valid.toString());
+    setLocal(null);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -32,8 +32,9 @@ export function BreakInput({ value, onChange, className }: BreakInputProps) {
     <div className={cn("flex items-center justify-center gap-1", className)}>
       <Input
         type="text"
-        value={local}
+        value={displayValue}
         onChange={(e) => setLocal(e.target.value.replace(/[^0-9]/g, ""))}
+        onFocus={handleFocus}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         className="w-12 bg-transparent text-center text-sm font-mono border-0 shadow-none h-auto px-1 py-0.5 focus:bg-muted/50"

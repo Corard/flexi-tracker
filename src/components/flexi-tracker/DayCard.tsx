@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -103,19 +103,19 @@ export function DayCard({
   const canCopyFromYesterday =
     yesterdayEntry?.startTime && yesterdayEntry?.endTime;
 
-  const setDayType = (type: DayType) => {
+  const setDayType = useCallback((type: DayType) => {
     if (isDisabled) return;
     onChange({ ...entry, dayType: type === "normal" ? undefined : type });
     setShowPresets(false);
-  };
+  }, [isDisabled, onChange, entry]);
 
-  const clearDay = () => {
+  const clearDay = useCallback(() => {
     if (isDisabled) return;
     onChange(null as unknown as DayEntry); // Signal to delete the entry
     setShowPresets(false);
-  };
+  }, [isDisabled, onChange]);
 
-  const copyFromYesterday = () => {
+  const copyFromYesterday = useCallback(() => {
     if (isDisabled || !canCopyFromYesterday) return;
     onChange({
       startTime: yesterdayEntry!.startTime,
@@ -123,7 +123,7 @@ export function DayCard({
       breakMinutes: yesterdayEntry!.breakMinutes || 0,
     });
     setShowPresets(false);
-  };
+  }, [isDisabled, canCopyFromYesterday, onChange, yesterdayEntry]);
 
   const menuItems = useMemo((): MenuItem[] => {
     const items: MenuItem[] = [];
@@ -191,16 +191,16 @@ export function DayCard({
   }, [
     canCopyFromYesterday,
     hasData,
-    dayType,
-    isDisabled,
-    yesterdayEntry,
-    entry,
+    copyFromYesterday,
+    setDayType,
+    clearDay,
   ]);
 
-  useEffect(() => {
-    if (showPresets) {
-      setSelectedIndex(0);
+  const togglePresets = useCallback(() => {
+    if (!showPresets) {
+      setSelectedIndex(0); // Reset when opening
     }
+    setShowPresets(!showPresets);
   }, [showPresets]);
 
   useEffect(() => {
@@ -317,7 +317,7 @@ export function DayCard({
         <Button
           variant={dayType !== "normal" ? "secondary" : "outline"}
           size="sm"
-          onClick={() => setShowPresets(!showPresets)}
+          onClick={togglePresets}
           className="w-full mb-2 text-xs h-7"
         >
           {dayType !== "normal" ? (
@@ -354,7 +354,7 @@ export function DayCard({
                   {item.type === "copy" && yesterdayEntry ? (
                     <>
                       <span className="flex items-center gap-1.5">
-                        <span className="w-4 flex-shrink-0">{getMenuIcon(item.icon)}</span>
+                        <span className="w-4 shrink-0">{getMenuIcon(item.icon)}</span>
                         <span>{item.label}</span>
                       </span>
                       <span className="text-[10px] text-blue-400 pl-5">
@@ -363,7 +363,7 @@ export function DayCard({
                     </>
                   ) : (
                     <>
-                      <span className="w-4 flex-shrink-0">{getMenuIcon(item.icon)}</span>
+                      <span className="w-4 shrink-0">{getMenuIcon(item.icon)}</span>
                       <span className="truncate">{item.label}</span>
                     </>
                   )}

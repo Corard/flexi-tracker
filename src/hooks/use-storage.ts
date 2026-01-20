@@ -35,7 +35,7 @@ export const useStorage = (): [AppState, (newState: AppState) => void, boolean] 
             });
           }
         }
-      } catch (e) {
+      } catch {
         console.log("No existing data, starting fresh");
       }
       setLoaded(true);

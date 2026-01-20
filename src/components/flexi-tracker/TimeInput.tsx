@@ -1,4 +1,4 @@
-import { useState, useEffect, type KeyboardEvent } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { parseTime } from "@/lib/flexi-tracker-utils";
 import { cn } from "@/lib/utils";
@@ -11,16 +11,16 @@ interface TimeInputProps {
 }
 
 export function TimeInput({ value, onChange, placeholder, className }: TimeInputProps) {
-  const [local, setLocal] = useState(value || "");
+  // null = not editing, use prop value; string = editing, use local value
+  const [local, setLocal] = useState<string | null>(null);
+  const displayValue = local ?? (value || "");
 
-  useEffect(() => {
-    setLocal(value || "");
-  }, [value]);
+  const handleFocus = () => setLocal(value || "");
 
   const handleBlur = () => {
-    const parsed = parseTime(local);
+    const parsed = parseTime(local || "");
     onChange(parsed);
-    setLocal(parsed || "");
+    setLocal(null);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -32,8 +32,9 @@ export function TimeInput({ value, onChange, placeholder, className }: TimeInput
   return (
     <Input
       type="text"
-      value={local}
+      value={displayValue}
       onChange={(e) => setLocal(e.target.value)}
+      onFocus={handleFocus}
       onBlur={handleBlur}
       onKeyDown={handleKeyDown}
       placeholder={placeholder}
