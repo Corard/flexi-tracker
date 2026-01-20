@@ -6,6 +6,7 @@ import { useStorage } from "@/hooks/use-storage";
 import { useShiftKey } from "@/hooks/use-shift-key";
 import {
   DEFAULT_SETTINGS,
+  DEFAULT_STATE,
   getWeekDates,
   getDateStr,
   calculateEffectiveWorked,
@@ -150,6 +151,10 @@ export function FlexiTracker() {
       adjustments: data.adjustments || [],
     };
     save(merged);
+  };
+
+  const clearData = () => {
+    save(DEFAULT_STATE);
   };
 
   if (!loaded) {
@@ -309,6 +314,7 @@ export function FlexiTracker() {
         appState={state}
         onChange={updateSettings}
         onImport={importData}
+        onClear={clearData}
         onClose={() => setShowSettings(false)}
       />
 
