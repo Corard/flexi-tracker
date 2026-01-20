@@ -27,13 +27,21 @@ export const FULL_DAYS = [
 
 export const DAY_TYPES: Record<DayType, DayTypeInfo> = {
   normal: { label: "", icon: null, color: "" },
-  sick: { label: "Sick", icon: "Thermometer", color: "bg-amber-100 dark:bg-amber-950 border-amber-300 dark:border-amber-700" },
+  sick: {
+    label: "Sick",
+    icon: "Thermometer",
+    color: "bg-amber-100 dark:bg-amber-950 border-amber-300 dark:border-amber-700",
+  },
   "sick-half": {
     label: "1/2 Sick",
     icon: "Thermometer",
     color: "bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800",
   },
-  holiday: { label: "Holiday", icon: "Palmtree", color: "bg-sky-100 dark:bg-sky-950 border-sky-300 dark:border-sky-700" },
+  holiday: {
+    label: "Holiday",
+    icon: "Palmtree",
+    color: "bg-sky-100 dark:bg-sky-950 border-sky-300 dark:border-sky-700",
+  },
   "holiday-half": {
     label: "1/2 Holiday",
     icon: "Palmtree",
@@ -92,8 +100,7 @@ export const parseTime = (str: string): string | null => {
   if (clean.length === 3) {
     const h = parseInt(clean[0], 10);
     const m = parseInt(clean.slice(1), 10);
-    if (h >= 0 && h <= 9 && m >= 0 && m <= 59)
-      return `0${h}:${m.toString().padStart(2, "0")}`;
+    if (h >= 0 && h <= 9 && m >= 0 && m <= 59) return `0${h}:${m.toString().padStart(2, "0")}`;
   }
   if (clean.length >= 4) {
     const h = parseInt(clean.slice(0, 2), 10);

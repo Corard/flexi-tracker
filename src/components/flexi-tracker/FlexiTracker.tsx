@@ -96,7 +96,7 @@ export function FlexiTracker() {
         return;
       }
       // Parse date in local timezone to avoid UTC offset issues
-      const [year, month, day] = dateStr.split('-').map(Number);
+      const [year, month, day] = dateStr.split("-").map(Number);
       const date = new Date(year, month - 1, day);
       const isWorkingDay = settings.workingDays.includes(date.getDay());
       const effectiveWorked = calculateEffectiveWorked(
@@ -167,17 +167,11 @@ export function FlexiTracker() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Flexi Hours</h1>
-            <p className="text-muted-foreground text-sm">
-              Track your flexible working time
-            </p>
+            <p className="text-muted-foreground text-sm">Track your flexible working time</p>
           </div>
           <div className="flex items-center gap-1">
             <ModeToggle />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowSettings(true)}
-            >
+            <Button variant="ghost" size="icon" onClick={() => setShowSettings(true)}>
               <Settings className="h-6 w-6" />
             </Button>
           </div>
@@ -204,8 +198,7 @@ export function FlexiTracker() {
               const key = getDateStr(date);
               const isWorkingDay = settings.workingDays.includes(date.getDay());
               const isToday = getDateStr(new Date()) === key;
-              const isDisabled =
-                !isWorkingDay && settings.nonWorkingDayDisplay === "disable";
+              const isDisabled = !isWorkingDay && settings.nonWorkingDayDisplay === "disable";
 
               const yesterday = new Date(date);
               yesterday.setDate(yesterday.getDate() - 1);
@@ -236,9 +229,7 @@ export function FlexiTracker() {
             <div>
               <div className="text-sm text-muted-foreground mb-1">
                 This Week
-                {shiftHeld && (
-                  <span className="ml-1 text-xs text-amber-500">(decimal)</span>
-                )}
+                {shiftHeld && <span className="ml-1 text-xs text-amber-500">(decimal)</span>}
               </div>
               <div className="text-2xl font-semibold">
                 {fmtDuration(weekStats.worked)}
@@ -271,18 +262,18 @@ export function FlexiTracker() {
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center",
-                overallBalance >= 0
-                  ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400"
-                  : "bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400"
-              )}>
+              <div
+                className={cn(
+                  "w-10 h-10 rounded-xl flex items-center justify-center",
+                  overallBalance >= 0
+                    ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400"
+                    : "bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400"
+                )}
+              >
                 <Clock className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-muted-foreground text-sm">
-                  Overall Flexi Balance
-                </div>
+                <div className="text-muted-foreground text-sm">Overall Flexi Balance</div>
                 <div
                   className={cn(
                     "text-2xl font-bold",
@@ -306,10 +297,8 @@ export function FlexiTracker() {
         <div className="text-center text-xs text-muted-foreground mt-8">
           All data stored locally |{" "}
           <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">←</kbd>{" "}
-          <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">→</kbd> to
-          navigate weeks | Hold{" "}
-          <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Shift</kbd> for
-          decimal
+          <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">→</kbd> to navigate weeks | Hold{" "}
+          <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Shift</kbd> for decimal
         </div>
       </div>
 

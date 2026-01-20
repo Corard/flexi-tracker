@@ -1,10 +1,5 @@
 import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -96,10 +91,7 @@ export function AdjustmentsPanel({
               <Button className="flex-1" onClick={handleAdd}>
                 Add
               </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setIsAdding(false)}
-              >
+              <Button variant="ghost" onClick={() => setIsAdding(false)}>
                 Cancel
               </Button>
             </div>
@@ -109,10 +101,7 @@ export function AdjustmentsPanel({
         {adjustments.length > 0 ? (
           <div className="space-y-2">
             {adjustments.map((adj) => (
-              <Card
-                key={adj.id}
-                className="flex items-center justify-between p-3 group"
-              >
+              <Card key={adj.id} className="flex items-center justify-between p-3 group">
                 <div>
                   <div
                     className={cn(
@@ -147,9 +136,7 @@ export function AdjustmentsPanel({
 
         {adjustments.length > 0 && (
           <div className="mt-4 pt-4 border-t text-center">
-            <span className="text-sm text-muted-foreground">
-              Total from adjustments:{" "}
-            </span>
+            <span className="text-sm text-muted-foreground">Total from adjustments: </span>
             <span
               className={cn(
                 "font-semibold",

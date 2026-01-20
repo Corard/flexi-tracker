@@ -1,10 +1,5 @@
 import { useRef, type ChangeEvent } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Download, Upload } from "lucide-react";
@@ -98,9 +93,7 @@ export function SettingsPanel({
 
           {/* Expected Hours */}
           <div>
-            <label className="block text-sm font-medium mb-2">
-              Expected Hours Per Day
-            </label>
+            <label className="block text-sm font-medium mb-2">Expected Hours Per Day</label>
             <div className="flex items-center gap-3">
               <Input
                 type="number"
@@ -108,8 +101,7 @@ export function SettingsPanel({
                 onChange={(e) =>
                   onChange({
                     ...settings,
-                    expectedMinutesPerDay:
-                      Math.max(0, parseFloat(e.target.value) || 0) * 60,
+                    expectedMinutesPerDay: Math.max(0, parseFloat(e.target.value) || 0) * 60,
                   })
                 }
                 step="0.5"
@@ -121,9 +113,7 @@ export function SettingsPanel({
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Weekly target:{" "}
-              {formatDuration(
-                settings.expectedMinutesPerDay * settings.workingDays.length
-              )}
+              {formatDuration(settings.expectedMinutesPerDay * settings.workingDays.length)}
             </p>
           </div>
 
@@ -153,9 +143,7 @@ export function SettingsPanel({
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs text-muted-foreground mb-2">
-                  Display
-                </label>
+                <label className="block text-xs text-muted-foreground mb-2">Display</label>
                 <div className="flex gap-2">
                   {(["show", "disable", "hide"] as NonWorkingDayDisplay[]).map((v) => (
                     <Button
@@ -172,9 +160,7 @@ export function SettingsPanel({
               </div>
 
               <div>
-                <label className="block text-xs text-muted-foreground mb-2">
-                  Overtime Rate
-                </label>
+                <label className="block text-xs text-muted-foreground mb-2">Overtime Rate</label>
                 <div className="flex gap-2">
                   {[
                     { v: 1, l: "1x" },
@@ -205,11 +191,7 @@ export function SettingsPanel({
           <div className="pt-4 border-t">
             <label className="block text-sm font-medium mb-3">Data Management</label>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={handleExport}
-              >
+              <Button variant="outline" className="flex-1" onClick={handleExport}>
                 <Download className="h-4 w-4 mr-2" />
                 Export
               </Button>

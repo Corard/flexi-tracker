@@ -2,14 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Thermometer,
-  Palmtree,
-  Clock,
-  Check,
-  X,
-  ClipboardCopy,
-} from "lucide-react";
+import { Thermometer, Palmtree, Clock, Check, X, ClipboardCopy } from "lucide-react";
 import type { DayEntry, DayType, MenuItem } from "@/types/flexi-tracker";
 import {
   DAYS,
@@ -74,8 +67,7 @@ export function DayCard({
   const fmtDuration = shiftHeld ? formatDurationDecimal : formatDuration;
   const fmtMinutes = shiftHeld ? formatMinutesDecimal : formatMinutes;
 
-  const isLiveTracking =
-    isToday && entry?.startTime && !entry?.endTime && !isDisabled;
+  const isLiveTracking = isToday && entry?.startTime && !entry?.endTime && !isDisabled;
 
   useEffect(() => {
     if (!isLiveTracking) return;
@@ -100,14 +92,16 @@ export function DayCard({
   const hasData = entry?.startTime || entry?.endTime || dayType !== "normal";
   const dayNum = date.getDay();
 
-  const canCopyFromYesterday =
-    yesterdayEntry?.startTime && yesterdayEntry?.endTime;
+  const canCopyFromYesterday = yesterdayEntry?.startTime && yesterdayEntry?.endTime;
 
-  const setDayType = useCallback((type: DayType) => {
-    if (isDisabled) return;
-    onChange({ ...entry, dayType: type === "normal" ? undefined : type });
-    setShowPresets(false);
-  }, [isDisabled, onChange, entry]);
+  const setDayType = useCallback(
+    (type: DayType) => {
+      if (isDisabled) return;
+      onChange({ ...entry, dayType: type === "normal" ? undefined : type });
+      setShowPresets(false);
+    },
+    [isDisabled, onChange, entry]
+  );
 
   const clearDay = useCallback(() => {
     if (isDisabled) return;
@@ -177,7 +171,7 @@ export function DayCard({
         label: "1/2 Flexi",
         icon: "flexi",
         action: () => setDayType("flexi-half"),
-      },
+      }
     );
     if (hasData) {
       items.push({
@@ -188,13 +182,7 @@ export function DayCard({
       });
     }
     return items;
-  }, [
-    canCopyFromYesterday,
-    hasData,
-    copyFromYesterday,
-    setDayType,
-    clearDay,
-  ]);
+  }, [canCopyFromYesterday, hasData, copyFromYesterday, setDayType, clearDay]);
 
   const togglePresets = useCallback(() => {
     if (!showPresets) {
@@ -214,9 +202,7 @@ export function DayCard({
           break;
         case "ArrowUp":
           e.preventDefault();
-          setSelectedIndex(
-            (i) => (i - 1 + menuItems.length) % menuItems.length,
-          );
+          setSelectedIndex((i) => (i - 1 + menuItems.length) % menuItems.length);
           break;
         case "Enter":
         case " ":
@@ -261,15 +247,12 @@ export function DayCard({
         isDisabled && "opacity-50 pointer-events-none",
         dayType !== "normal" && typeInfo.color,
         dayType === "normal" && isWorkingDay && "bg-card border-border hover:shadow-md",
-        dayType === "normal" && !isWorkingDay && "bg-muted/50 border-transparent",
+        dayType === "normal" && !isWorkingDay && "bg-muted/50 border-transparent"
       )}
     >
       {/* Rate badge for non-working days */}
       {!isWorkingDay && rate > 1 && hasData && (
-        <Badge
-          variant="secondary"
-          className="absolute -top-2 -right-2 bg-amber-400 text-amber-900"
-        >
+        <Badge variant="secondary" className="absolute -top-2 -right-2 bg-amber-400 text-amber-900">
           {rate}x
         </Badge>
       )}
@@ -297,7 +280,7 @@ export function DayCard({
         <div
           className={cn(
             "text-xs font-semibold uppercase tracking-wider",
-            isWorkingDay ? "text-muted-foreground" : "text-muted-foreground/60",
+            isWorkingDay ? "text-muted-foreground" : "text-muted-foreground/60"
           )}
         >
           {DAYS[dayNum]}
@@ -305,7 +288,7 @@ export function DayCard({
         <div
           className={cn(
             "text-2xl font-light",
-            isWorkingDay ? "text-foreground" : "text-muted-foreground/60",
+            isWorkingDay ? "text-foreground" : "text-muted-foreground/60"
           )}
         >
           {date.getDate()}
@@ -348,7 +331,7 @@ export function DayCard({
                     item.type === "clear" && "text-destructive",
                     isSelected && "bg-muted",
                     !isSelected && "hover:bg-muted/50",
-                    dayType === item.type && "font-medium",
+                    dayType === item.type && "font-medium"
                   )}
                 >
                   {item.type === "copy" && yesterdayEntry ? (
@@ -376,10 +359,7 @@ export function DayCard({
 
       {/* Time Inputs - dimmed if full day preset */}
       <div
-        className={cn(
-          "space-y-2",
-          ["sick", "holiday", "flexi"].includes(dayType) && "opacity-40",
-        )}
+        className={cn("space-y-2", ["sick", "holiday", "flexi"].includes(dayType) && "opacity-40")}
       >
         <div className="space-y-1">
           <TimeInput
@@ -406,23 +386,19 @@ export function DayCard({
             "text-center text-lg font-semibold",
             isLiveTracking && "text-emerald-600",
             !isLiveTracking && hasData && "text-foreground",
-            !isLiveTracking && !hasData && "text-muted-foreground/50",
+            !isLiveTracking && !hasData && "text-muted-foreground/50"
           )}
         >
           {isLiveTracking ? (
             <div className="flex flex-col items-center gap-1">
               <span className="flex items-center justify-center gap-1">
                 {fmtDuration(displayWorked)}
-                <span className="text-xs text-emerald-500 font-normal">
-                  live
-                </span>
+                <span className="text-xs text-emerald-500 font-normal">live</span>
               </span>
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() =>
-                  onChange({ ...entry, endTime: getCurrentTimeStr() })
-                }
+                onClick={() => onChange({ ...entry, endTime: getCurrentTimeStr() })}
                 className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
               >
                 Clock out
@@ -434,9 +410,7 @@ export function DayCard({
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() =>
-                  onChange({ ...entry, startTime: getCurrentTimeStr() })
-                }
+                onClick={() => onChange({ ...entry, startTime: getCurrentTimeStr() })}
                 className="bg-blue-100 text-blue-700 hover:bg-blue-200"
               >
                 Clock in
@@ -458,23 +432,16 @@ export function DayCard({
               "text-center text-sm font-medium",
               balance > 0 && "text-emerald-600",
               balance < 0 && "text-destructive",
-              balance === 0 && "text-muted-foreground",
+              balance === 0 && "text-muted-foreground"
             )}
           >
-            {hasData || isLiveTracking || balance !== -expected
-              ? fmtMinutes(balance)
-              : "-"}
+            {hasData || isLiveTracking || balance !== -expected ? fmtMinutes(balance) : "-"}
           </div>
         )}
       </div>
 
       {/* Click outside to close presets */}
-      {showPresets && (
-        <div
-          className="fixed inset-0 z-10"
-          onClick={() => setShowPresets(false)}
-        />
-      )}
+      {showPresets && <div className="fixed inset-0 z-10" onClick={() => setShowPresets(false)} />}
     </Card>
   );
 }
