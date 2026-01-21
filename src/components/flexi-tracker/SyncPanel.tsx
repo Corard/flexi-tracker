@@ -64,6 +64,8 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerRef = useRef<HTMLDivElement>(null);
   const hasStarted = useRef(false);
+  const connectToPeerRef = useRef(sync.connectToPeer);
+  connectToPeerRef.current = sync.connectToPeer;
 
   // Start in the correct mode when opened
   useEffect(() => {
@@ -100,8 +102,19 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
       return;
     }
 
+    let cancelled = false;
+
     const startScanner = async () => {
-      if (!scannerContainerRef.current) return;
+      // Wait for DOM to render
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      if (cancelled) return;
+
+      const element = document.getElementById("qr-scanner");
+      if (!element) {
+        setCameraError("Scanner element not found");
+        return;
+      }
 
       try {
         scannerRef.current = new Html5Qrcode("qr-scanner");
@@ -111,7 +124,7 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
           (decodedText) => {
             // QR code successfully scanned
             scannerRef.current?.stop().catch(() => {});
-            sync.connectToPeer(decodedText);
+            connectToPeerRef.current(decodedText);
           },
           () => {
             // QR code not detected (ignore)
@@ -119,6 +132,7 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
         );
         setCameraError(null);
       } catch (err) {
+        console.error("Camera error:", err);
         setCameraError(
           err instanceof Error ? err.message : "Failed to access camera. Please check permissions."
         );
@@ -126,7 +140,11 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
     };
 
     startScanner();
-  }, [sync.status, sync.connectToPeer]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sync.status]);
 
   // Reset resolutions when conflicts change
   useEffect(() => {
