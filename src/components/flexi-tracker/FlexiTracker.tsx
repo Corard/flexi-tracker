@@ -23,6 +23,7 @@ import { DayCard } from "./DayCard";
 import { WeekNav } from "./WeekNav";
 import { SettingsPanel } from "./SettingsPanel";
 import { AdjustmentsPanel } from "./AdjustmentsPanel";
+import { SyncPanel } from "./SyncPanel";
 import { ModeToggle } from "@/components/mode-toggle";
 
 export function FlexiTracker() {
@@ -30,6 +31,8 @@ export function FlexiTracker() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showSettings, setShowSettings] = useState(false);
   const [showAdjustments, setShowAdjustments] = useState(false);
+  const [showSync, setShowSync] = useState(false);
+  const [syncMode, setSyncMode] = useState<"host" | "scan">("host");
   const shiftHeld = useShiftKey();
 
   // Keyboard shortcuts
@@ -158,6 +161,15 @@ export function FlexiTracker() {
 
   const clearData = () => {
     save(DEFAULT_STATE);
+  };
+
+  const handleSync = (mode: "host" | "scan") => {
+    setSyncMode(mode);
+    setShowSync(true);
+  };
+
+  const handleSyncMerge = (mergedState: AppState) => {
+    save(mergedState);
   };
 
   if (!loaded) {
@@ -317,6 +329,7 @@ export function FlexiTracker() {
         onImport={importData}
         onClear={clearData}
         onClose={() => setShowSettings(false)}
+        onSync={handleSync}
       />
 
       <AdjustmentsPanel
@@ -326,6 +339,14 @@ export function FlexiTracker() {
         onAdd={addAdjustment}
         onDelete={deleteAdjustment}
         onClose={() => setShowAdjustments(false)}
+      />
+
+      <SyncPanel
+        open={showSync}
+        appState={state}
+        initialMode={syncMode}
+        onMerge={handleSyncMerge}
+        onClose={() => setShowSync(false)}
       />
     </div>
   );

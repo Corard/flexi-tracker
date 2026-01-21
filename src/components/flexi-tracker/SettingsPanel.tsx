@@ -2,7 +2,16 @@ import { useRef, useState, type ChangeEvent } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Download, Upload, AlertTriangle, Trash2, FileUp, ClipboardPaste } from "lucide-react";
+import {
+  Download,
+  Upload,
+  AlertTriangle,
+  Trash2,
+  FileUp,
+  ClipboardPaste,
+  QrCode,
+  ScanLine,
+} from "lucide-react";
 import type { Settings, AppState, NonWorkingDayDisplay } from "@/types/flexi-tracker";
 import { FULL_DAYS, formatDuration } from "@/lib/flexi-tracker-utils";
 import { cn } from "@/lib/utils";
@@ -15,6 +24,7 @@ interface SettingsPanelProps {
   onImport: (data: AppState) => void;
   onClear: () => void;
   onClose: () => void;
+  onSync: (mode: "host" | "scan") => void;
 }
 
 export function SettingsPanel({
@@ -25,6 +35,7 @@ export function SettingsPanel({
   onImport,
   onClear,
   onClose,
+  onSync,
 }: SettingsPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [clearStep, setClearStep] = useState(0);
@@ -248,6 +259,38 @@ export function SettingsPanel({
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Sync with Another Device */}
+          <div className="pt-4 border-t">
+            <label className="block text-sm font-medium mb-3">Sync with Another Device</label>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  onClose();
+                  onSync("host");
+                }}
+              >
+                <QrCode className="h-4 w-4 mr-2" />
+                Show QR Code
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  onClose();
+                  onSync("scan");
+                }}
+              >
+                <ScanLine className="h-4 w-4 mr-2" />
+                Scan QR Code
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Sync data with another device using a secure peer-to-peer connection.
+            </p>
           </div>
 
           {/* Data Management */}

@@ -50,6 +50,26 @@ export interface MenuItem {
   action: () => void;
 }
 
+// P2P Sync Types
+export interface SyncPayload {
+  entries: Record<string, DayEntry>;
+  adjustments: Adjustment[];
+  settings: Settings;
+  timestamp: number;
+}
+
+export interface ConflictEntry {
+  date: string;
+  local: DayEntry;
+  remote: DayEntry;
+}
+
+export interface SyncResult {
+  mergedEntries: Record<string, DayEntry>;
+  mergedAdjustments: Adjustment[];
+  conflicts: ConflictEntry[];
+}
+
 declare global {
   interface Window {
     storage: {
