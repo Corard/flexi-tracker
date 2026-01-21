@@ -64,6 +64,7 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerRef = useRef<HTMLDivElement>(null);
   const hasStarted = useRef(false);
+  const hasScanned = useRef(false);
   const connectToPeerRef = useRef(sync.connectToPeer);
   connectToPeerRef.current = sync.connectToPeer;
 
@@ -99,6 +100,7 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
         scannerRef.current.stop().catch(() => {});
         scannerRef.current = null;
       }
+      hasScanned.current = false;
       return;
     }
 
@@ -121,9 +123,20 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
         await scannerRef.current.start(
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 250, height: 250 } },
-          (decodedText) => {
-            // QR code successfully scanned
-            scannerRef.current?.stop().catch(() => {});
+          async (decodedText) => {
+            // Prevent multiple triggers
+            if (hasScanned.current) return;
+            hasScanned.current = true;
+
+            // Stop scanner first and wait for it
+            try {
+              await scannerRef.current?.stop();
+              scannerRef.current = null;
+            } catch {
+              // Ignore stop errors
+            }
+
+            // Then connect to peer
             connectToPeerRef.current(decodedText);
           },
           () => {

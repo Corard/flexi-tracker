@@ -43,6 +43,8 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
   const activeConnection = useRef<DataConnection | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const remotePayload = useRef<SyncPayload | null>(null);
+  const connectionAccepted = useRef(false);
+  const pendingData = useRef<{ data: unknown; conn: DataConnection } | null>(null);
 
   const cleanup = useCallback(() => {
     if (timeoutRef.current) {
@@ -53,6 +55,8 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
     peerManager.current = null;
     activeConnection.current = null;
     remotePayload.current = null;
+    connectionAccepted.current = false;
+    pendingData.current = null;
   }, []);
 
   useEffect(() => {
@@ -67,6 +71,37 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
       timestamp: Date.now(),
     };
   }, [appState]);
+
+  const processIncomingData = useCallback(
+    (data: unknown, conn: DataConnection) => {
+      if (!isSyncMessage(data)) return;
+
+      if (data.type === "SYNC_REQUEST" && validateSyncPayload(data.payload)) {
+        // Store remote payload and send our data back
+        remotePayload.current = data.payload;
+        const localPayload = createLocalPayload();
+        peerManager.current?.sendData(conn, createSyncResponse(localPayload));
+
+        // Process merge
+        const result = prepareSyncResult(localPayload, data.payload);
+        if (result.conflicts.length > 0) {
+          setState((s) => ({ ...s, status: "conflicts", syncResult: result }));
+        } else {
+          // No conflicts, apply merge directly
+          onMerge({
+            ...appState,
+            entries: result.mergedEntries,
+            adjustments: result.mergedAdjustments,
+          });
+          peerManager.current?.sendData(conn, createSyncComplete());
+          setState((s) => ({ ...s, status: "complete", syncResult: result }));
+        }
+      } else if (data.type === "SYNC_COMPLETE") {
+        setState((s) => ({ ...s, status: "complete" }));
+      }
+    },
+    [createLocalPayload, appState, onMerge]
+  );
 
   const startHosting = useCallback(async () => {
     cleanup();
@@ -97,29 +132,13 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
       peerManager.current.on("onData", (data, conn) => {
         if (!isSyncMessage(data)) return;
 
-        if (data.type === "SYNC_REQUEST" && validateSyncPayload(data.payload)) {
-          // Store remote payload and send our data back
-          remotePayload.current = data.payload;
-          const localPayload = createLocalPayload();
-          peerManager.current?.sendData(conn, createSyncResponse(localPayload));
-
-          // Process merge
-          const result = prepareSyncResult(localPayload, data.payload);
-          if (result.conflicts.length > 0) {
-            setState((s) => ({ ...s, status: "conflicts", syncResult: result }));
-          } else {
-            // No conflicts, apply merge directly
-            onMerge({
-              ...appState,
-              entries: result.mergedEntries,
-              adjustments: result.mergedAdjustments,
-            });
-            peerManager.current?.sendData(conn, createSyncComplete());
-            setState((s) => ({ ...s, status: "complete", syncResult: result }));
-          }
-        } else if (data.type === "SYNC_COMPLETE") {
-          setState((s) => ({ ...s, status: "complete" }));
+        // Buffer data if connection not yet accepted
+        if (!connectionAccepted.current) {
+          pendingData.current = { data, conn };
+          return;
         }
+
+        processIncomingData(data, conn);
       });
 
       const peerId = await peerManager.current.createPeer();
@@ -147,9 +166,16 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
     const conn = state.pendingConnection;
     if (!conn) return;
 
+    connectionAccepted.current = true;
     activeConnection.current = conn;
     setState((s) => ({ ...s, status: "syncing", pendingConnection: null }));
-  }, [state.pendingConnection]);
+
+    // Process any buffered data
+    if (pendingData.current) {
+      processIncomingData(pendingData.current.data, pendingData.current.conn);
+      pendingData.current = null;
+    }
+  }, [state.pendingConnection, processIncomingData]);
 
   const rejectConnection = useCallback(() => {
     const conn = state.pendingConnection;
