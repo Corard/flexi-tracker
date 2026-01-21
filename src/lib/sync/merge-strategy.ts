@@ -1,8 +1,10 @@
 import type {
   DayEntry,
   Adjustment,
+  Settings,
   SyncPayload,
   ConflictEntry,
+  SettingsConflict,
   SyncResult,
 } from "@/types/flexi-tracker";
 
@@ -122,17 +124,48 @@ export function mergeAdjustments(local: Adjustment[], remote: Adjustment[]): Adj
   );
 }
 
+function arraysEqual(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false;
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((v, i) => v === sortedB[i]);
+}
+
+export function settingsAreEqual(local: Settings, remote: Settings): boolean {
+  return (
+    arraysEqual(local.workingDays, remote.workingDays) &&
+    local.expectedMinutesPerDay === remote.expectedMinutesPerDay &&
+    local.weekStartsOn === remote.weekStartsOn &&
+    local.nonWorkingDayDisplay === remote.nonWorkingDayDisplay &&
+    local.nonWorkingDayRate === remote.nonWorkingDayRate
+  );
+}
+
+export function detectSettingsConflict(local: Settings, remote: Settings): SettingsConflict | null {
+  if (settingsAreEqual(local, remote)) {
+    return null;
+  }
+  return { local, remote };
+}
+
 export function prepareSyncResult(
   localPayload: SyncPayload,
   remotePayload: SyncPayload
 ): SyncResult {
-  const conflicts = detectConflicts(localPayload.entries, remotePayload.entries);
-  const mergedEntries = mergeNonConflicting(localPayload.entries, remotePayload.entries, conflicts);
+  const entryConflicts = detectConflicts(localPayload.entries, remotePayload.entries);
+  const mergedEntries = mergeNonConflicting(
+    localPayload.entries,
+    remotePayload.entries,
+    entryConflicts
+  );
   const mergedAdjustments = mergeAdjustments(localPayload.adjustments, remotePayload.adjustments);
+  const settingsConflict = detectSettingsConflict(localPayload.settings, remotePayload.settings);
 
   return {
     mergedEntries,
     mergedAdjustments,
-    conflicts,
+    mergedSettings: localPayload.settings, // Default to local, will be overridden if conflict resolved
+    entryConflicts,
+    settingsConflict,
   };
 }

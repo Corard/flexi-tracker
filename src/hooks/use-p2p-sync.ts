@@ -9,7 +9,7 @@ import {
   validateSyncPayload,
 } from "@/lib/sync/sync-protocol";
 import { prepareSyncResult } from "@/lib/sync/merge-strategy";
-import type { AppState, SyncPayload, SyncResult } from "@/types/flexi-tracker";
+import type { AppState, SyncPayload, SyncResult, Settings } from "@/types/flexi-tracker";
 
 export type SyncStatus =
   | "idle"
@@ -17,8 +17,10 @@ export type SyncStatus =
   | "scanning"
   | "connecting"
   | "awaiting-acceptance"
-  | "syncing"
-  | "conflicts"
+  | "syncing-entries"
+  | "syncing-settings"
+  | "entry-conflicts"
+  | "settings-conflict"
   | "complete"
   | "error";
 
@@ -28,6 +30,10 @@ export interface P2PSyncState {
   error: string | null;
   syncResult: SyncResult | null;
   pendingConnection: DataConnection | null;
+  syncProgress: {
+    entriesCount: number;
+    adjustmentsCount: number;
+  };
 }
 
 export function useP2PSync(appState: AppState, onMerge: (state: AppState) => void) {
@@ -37,6 +43,7 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
     error: null,
     syncResult: null,
     pendingConnection: null,
+    syncProgress: { entriesCount: 0, adjustmentsCount: 0 },
   });
 
   const peerManager = useRef<PeerConnectionManager | null>(null);
@@ -72,6 +79,50 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
     };
   }, [appState]);
 
+  const processSyncResult = useCallback(
+    async (result: SyncResult, conn: DataConnection) => {
+      const entriesCount = Object.keys(result.mergedEntries).length;
+      const adjustmentsCount = result.mergedAdjustments.length;
+
+      // Show syncing entries progress
+      setState((s) => ({
+        ...s,
+        status: "syncing-entries",
+        syncResult: result,
+        syncProgress: { entriesCount, adjustmentsCount },
+      }));
+
+      // Artificial delay for visual feedback
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      // Show syncing settings progress
+      setState((s) => ({ ...s, status: "syncing-settings" }));
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Check for entry conflicts first
+      if (result.entryConflicts.length > 0) {
+        setState((s) => ({ ...s, status: "entry-conflicts" }));
+        return;
+      }
+
+      // Check for settings conflict
+      if (result.settingsConflict) {
+        setState((s) => ({ ...s, status: "settings-conflict" }));
+        return;
+      }
+
+      // No conflicts, apply merge directly
+      onMerge({
+        entries: result.mergedEntries,
+        adjustments: result.mergedAdjustments,
+        settings: result.mergedSettings,
+      });
+      peerManager.current?.sendData(conn, createSyncComplete());
+      setState((s) => ({ ...s, status: "complete" }));
+    },
+    [onMerge]
+  );
+
   const processIncomingData = useCallback(
     (data: unknown, conn: DataConnection) => {
       if (!isSyncMessage(data)) return;
@@ -82,30 +133,25 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
         const localPayload = createLocalPayload();
         peerManager.current?.sendData(conn, createSyncResponse(localPayload));
 
-        // Process merge
+        // Process merge with visual progress
         const result = prepareSyncResult(localPayload, data.payload);
-        if (result.conflicts.length > 0) {
-          setState((s) => ({ ...s, status: "conflicts", syncResult: result }));
-        } else {
-          // No conflicts, apply merge directly
-          onMerge({
-            ...appState,
-            entries: result.mergedEntries,
-            adjustments: result.mergedAdjustments,
-          });
-          peerManager.current?.sendData(conn, createSyncComplete());
-          setState((s) => ({ ...s, status: "complete", syncResult: result }));
-        }
+        processSyncResult(result, conn);
       } else if (data.type === "SYNC_COMPLETE") {
         setState((s) => ({ ...s, status: "complete" }));
       }
     },
-    [createLocalPayload, appState, onMerge]
+    [createLocalPayload, processSyncResult]
   );
 
   const startHosting = useCallback(async () => {
     cleanup();
-    setState((s) => ({ ...s, status: "hosting", error: null, peerId: null }));
+    setState((s) => ({
+      ...s,
+      status: "hosting",
+      error: null,
+      peerId: null,
+      syncProgress: { entriesCount: 0, adjustmentsCount: 0 },
+    }));
 
     try {
       peerManager.current = new PeerConnectionManager();
@@ -160,7 +206,7 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
         error: error instanceof Error ? error.message : "Failed to create peer",
       }));
     }
-  }, [cleanup, createLocalPayload, appState, onMerge]);
+  }, [cleanup, processIncomingData]);
 
   const acceptConnection = useCallback(() => {
     const conn = state.pendingConnection;
@@ -168,7 +214,7 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
 
     connectionAccepted.current = true;
     activeConnection.current = conn;
-    setState((s) => ({ ...s, status: "syncing", pendingConnection: null }));
+    setState((s) => ({ ...s, status: "syncing-entries", pendingConnection: null }));
 
     // Process any buffered data
     if (pendingData.current) {
@@ -202,7 +248,12 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
   const connectToPeer = useCallback(
     async (remotePeerId: string) => {
       cleanup();
-      setState((s) => ({ ...s, status: "connecting", error: null }));
+      setState((s) => ({
+        ...s,
+        status: "connecting",
+        error: null,
+        syncProgress: { entriesCount: 0, adjustmentsCount: 0 },
+      }));
 
       try {
         peerManager.current = new PeerConnectionManager();
@@ -215,23 +266,11 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
           if (!isSyncMessage(data)) return;
 
           if (data.type === "SYNC_RESPONSE" && validateSyncPayload(data.payload)) {
-            // Process merge
+            // Process merge with visual progress
             const localPayload = createLocalPayload();
             remotePayload.current = data.payload;
             const result = prepareSyncResult(localPayload, data.payload);
-
-            if (result.conflicts.length > 0) {
-              setState((s) => ({ ...s, status: "conflicts", syncResult: result }));
-            } else {
-              // No conflicts, apply merge directly
-              onMerge({
-                ...appState,
-                entries: result.mergedEntries,
-                adjustments: result.mergedAdjustments,
-              });
-              peerManager.current?.sendData(conn, createSyncComplete());
-              setState((s) => ({ ...s, status: "complete", syncResult: result }));
-            }
+            processSyncResult(result, conn);
           } else if (data.type === "SYNC_COMPLETE") {
             setState((s) => ({ ...s, status: "complete" }));
           }
@@ -239,7 +278,7 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
 
         const conn = await peerManager.current.connectToPeer(remotePeerId);
         activeConnection.current = conn;
-        setState((s) => ({ ...s, status: "syncing" }));
+        setState((s) => ({ ...s, status: "syncing-entries" }));
 
         // Send sync request
         const localPayload = createLocalPayload();
@@ -252,16 +291,16 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
         }));
       }
     },
-    [cleanup, createLocalPayload, appState, onMerge]
+    [cleanup, createLocalPayload, processSyncResult]
   );
 
-  const resolveConflicts = useCallback(
+  const resolveEntryConflicts = useCallback(
     (resolutions: Map<string, "local" | "remote">) => {
       if (!state.syncResult) return;
 
       // Apply resolutions to merged entries
       const finalEntries = { ...state.syncResult.mergedEntries };
-      for (const conflict of state.syncResult.conflicts) {
+      for (const conflict of state.syncResult.entryConflicts) {
         const choice = resolutions.get(conflict.date);
         if (choice === "local") {
           finalEntries[conflict.date] = conflict.local;
@@ -270,13 +309,62 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
         }
       }
 
+      const updatedResult = {
+        ...state.syncResult,
+        mergedEntries: finalEntries,
+        entryConflicts: [],
+      };
+
+      // Check if there's also a settings conflict
+      if (state.syncResult.settingsConflict) {
+        setState((s) => ({
+          ...s,
+          status: "settings-conflict",
+          syncResult: updatedResult,
+        }));
+      } else {
+        // No settings conflict, complete the sync
+        onMerge({
+          entries: finalEntries,
+          adjustments: state.syncResult.mergedAdjustments,
+          settings: state.syncResult.mergedSettings,
+        });
+
+        if (activeConnection.current && peerManager.current) {
+          peerManager.current.sendData(activeConnection.current, createSyncComplete());
+        }
+
+        setState((s) => ({
+          ...s,
+          status: "complete",
+          syncResult: updatedResult,
+        }));
+      }
+    },
+    [state.syncResult, onMerge]
+  );
+
+  const resolveSettingsConflict = useCallback(
+    (choice: "local" | "remote") => {
+      if (!state.syncResult || !state.syncResult.settingsConflict) return;
+
+      const finalSettings: Settings =
+        choice === "local"
+          ? state.syncResult.settingsConflict.local
+          : state.syncResult.settingsConflict.remote;
+
+      const updatedResult = {
+        ...state.syncResult,
+        mergedSettings: finalSettings,
+        settingsConflict: null,
+      };
+
       onMerge({
-        ...appState,
-        entries: finalEntries,
+        entries: state.syncResult.mergedEntries,
         adjustments: state.syncResult.mergedAdjustments,
+        settings: finalSettings,
       });
 
-      // Send complete signal
       if (activeConnection.current && peerManager.current) {
         peerManager.current.sendData(activeConnection.current, createSyncComplete());
       }
@@ -284,14 +372,10 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
       setState((s) => ({
         ...s,
         status: "complete",
-        syncResult: {
-          ...s.syncResult!,
-          mergedEntries: finalEntries,
-          conflicts: [],
-        },
+        syncResult: updatedResult,
       }));
     },
-    [state.syncResult, appState, onMerge]
+    [state.syncResult, onMerge]
   );
 
   const reset = useCallback(() => {
@@ -302,6 +386,7 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
       error: null,
       syncResult: null,
       pendingConnection: null,
+      syncProgress: { entriesCount: 0, adjustmentsCount: 0 },
     });
   }, [cleanup]);
 
@@ -316,7 +401,8 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
     connectToPeer,
     acceptConnection,
     rejectConnection,
-    resolveConflicts,
+    resolveEntryConflicts,
+    resolveSettingsConflict,
     reset,
   };
 }

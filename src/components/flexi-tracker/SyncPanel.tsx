@@ -15,10 +15,17 @@ import {
   RefreshCw,
   Copy,
   Smartphone,
+  Settings,
 } from "lucide-react";
-import type { AppState, ConflictEntry, DayEntry } from "@/types/flexi-tracker";
+import type {
+  AppState,
+  ConflictEntry,
+  DayEntry,
+  Settings as SettingsType,
+} from "@/types/flexi-tracker";
 import { useP2PSync } from "@/hooks/use-p2p-sync";
 import { cn } from "@/lib/utils";
+import { FULL_DAYS } from "@/lib/flexi-tracker-utils";
 
 interface SyncPanelProps {
   open: boolean;
@@ -56,11 +63,26 @@ function formatDate(dateStr: string): string {
   });
 }
 
+function formatSettingsDisplay(settings: SettingsType): string[] {
+  const lines: string[] = [];
+  const workingDayNames = settings.workingDays.map((d) => FULL_DAYS[d].slice(0, 3)).join(", ");
+  lines.push(`Working: ${workingDayNames}`);
+  lines.push(`${settings.expectedMinutesPerDay / 60}h/day`);
+  lines.push(`Week starts: ${settings.weekStartsOn === 1 ? "Mon" : "Sun"}`);
+  lines.push(`Non-working: ${settings.nonWorkingDayDisplay}`);
+  if (settings.nonWorkingDayRate !== 1) {
+    lines.push(`OT rate: ${settings.nonWorkingDayRate}x`);
+  }
+  return lines;
+}
+
 export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: SyncPanelProps) {
   const sync = useP2PSync(appState, onMerge);
   const [manualCode, setManualCode] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [resolutions, setResolutions] = useState<Map<string, "local" | "remote">>(new Map());
+  const [entryResolutions, setEntryResolutions] = useState<Map<string, "local" | "remote">>(
+    new Map()
+  );
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerRef = useRef<HTMLDivElement>(null);
   const hasStarted = useRef(false);
@@ -161,16 +183,16 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
 
   // Reset resolutions when conflicts change
   useEffect(() => {
-    if (sync.syncResult?.conflicts) {
-      setResolutions(new Map());
+    if (sync.syncResult?.entryConflicts) {
+      setEntryResolutions(new Map());
     }
-  }, [sync.syncResult?.conflicts]);
+  }, [sync.syncResult?.entryConflicts]);
 
   const handleClose = () => {
     sync.reset();
     setManualCode("");
     setCameraError(null);
-    setResolutions(new Map());
+    setEntryResolutions(new Map());
     onClose();
   };
 
@@ -186,18 +208,18 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
     }
   };
 
-  const handleResolveConflict = (date: string, choice: "local" | "remote") => {
-    setResolutions((prev) => new Map(prev).set(date, choice));
+  const handleResolveEntryConflict = (date: string, choice: "local" | "remote") => {
+    setEntryResolutions((prev) => new Map(prev).set(date, choice));
   };
 
-  const handleApplyResolutions = () => {
-    if (sync.syncResult?.conflicts.every((c) => resolutions.has(c.date))) {
-      sync.resolveConflicts(resolutions);
+  const handleApplyEntryResolutions = () => {
+    if (sync.syncResult?.entryConflicts.every((c) => entryResolutions.has(c.date))) {
+      sync.resolveEntryConflicts(entryResolutions);
     }
   };
 
-  const allConflictsResolved =
-    sync.syncResult?.conflicts.every((c) => resolutions.has(c.date)) ?? false;
+  const allEntryConflictsResolved =
+    sync.syncResult?.entryConflicts.every((c) => entryResolutions.has(c.date)) ?? false;
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
@@ -324,25 +346,37 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
             </div>
           )}
 
-          {/* Syncing State */}
-          {sync.status === "syncing" && (
+          {/* Syncing Entries State */}
+          {sync.status === "syncing-entries" && (
             <div className="space-y-4 py-8">
               <div className="flex justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
               </div>
-              <p className="text-center text-muted-foreground">Syncing data...</p>
+              <p className="text-center text-muted-foreground">
+                Syncing {sync.syncProgress.entriesCount} entries...
+              </p>
             </div>
           )}
 
-          {/* Conflicts State */}
-          {sync.status === "conflicts" && sync.syncResult && (
+          {/* Syncing Settings State */}
+          {sync.status === "syncing-settings" && (
+            <div className="space-y-4 py-8">
+              <div className="flex justify-center">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              </div>
+              <p className="text-center text-muted-foreground">Syncing settings...</p>
+            </div>
+          )}
+
+          {/* Entry Conflicts State */}
+          {sync.status === "entry-conflicts" && sync.syncResult && (
             <div className="space-y-4">
               <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-md">
                 <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium text-amber-600 dark:text-amber-400">
-                    {sync.syncResult.conflicts.length} conflict
-                    {sync.syncResult.conflicts.length > 1 ? "s" : ""} found
+                    {sync.syncResult.entryConflicts.length} day
+                    {sync.syncResult.entryConflicts.length > 1 ? "s" : ""} differ
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
                     Choose which version to keep for each day:
@@ -351,23 +385,71 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
               </div>
 
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {sync.syncResult.conflicts.map((conflict) => (
-                  <ConflictCard
+                {sync.syncResult.entryConflicts.map((conflict) => (
+                  <EntryConflictCard
                     key={conflict.date}
                     conflict={conflict}
-                    selected={resolutions.get(conflict.date)}
-                    onSelect={(choice) => handleResolveConflict(conflict.date, choice)}
+                    selected={entryResolutions.get(conflict.date)}
+                    onSelect={(choice) => handleResolveEntryConflict(conflict.date, choice)}
                   />
                 ))}
               </div>
 
               <Button
                 className="w-full"
-                onClick={handleApplyResolutions}
-                disabled={!allConflictsResolved}
+                onClick={handleApplyEntryResolutions}
+                disabled={!allEntryConflictsResolved}
               >
-                Apply Selections
+                Continue
               </Button>
+            </div>
+          )}
+
+          {/* Settings Conflict State */}
+          {sync.status === "settings-conflict" && sync.syncResult?.settingsConflict && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-md">
+                <Settings className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-600 dark:text-amber-400">Settings differ</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Choose which settings to keep:
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => sync.resolveSettingsConflict("local")}
+                  className="p-3 rounded-md border text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
+                >
+                  <p className="text-sm font-medium mb-2">This Device</p>
+                  <div className="space-y-1">
+                    {formatSettingsDisplay(sync.syncResult.settingsConflict.local).map(
+                      (line, i) => (
+                        <p key={i} className="text-xs text-muted-foreground">
+                          {line}
+                        </p>
+                      )
+                    )}
+                  </div>
+                </button>
+                <button
+                  onClick={() => sync.resolveSettingsConflict("remote")}
+                  className="p-3 rounded-md border text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
+                >
+                  <p className="text-sm font-medium mb-2">Other Device</p>
+                  <div className="space-y-1">
+                    {formatSettingsDisplay(sync.syncResult.settingsConflict.remote).map(
+                      (line, i) => (
+                        <p key={i} className="text-xs text-muted-foreground">
+                          {line}
+                        </p>
+                      )
+                    )}
+                  </div>
+                </button>
+              </div>
             </div>
           )}
 
@@ -430,13 +512,13 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
   );
 }
 
-interface ConflictCardProps {
+interface EntryConflictCardProps {
   conflict: ConflictEntry;
   selected?: "local" | "remote";
   onSelect: (choice: "local" | "remote") => void;
 }
 
-function ConflictCard({ conflict, selected, onSelect }: ConflictCardProps) {
+function EntryConflictCard({ conflict, selected, onSelect }: EntryConflictCardProps) {
   return (
     <Card className="p-3">
       <p className="font-medium text-sm mb-2">{formatDate(conflict.date)}</p>

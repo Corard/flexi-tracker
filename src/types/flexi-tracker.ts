@@ -64,10 +64,17 @@ export interface ConflictEntry {
   remote: DayEntry;
 }
 
+export interface SettingsConflict {
+  local: Settings;
+  remote: Settings;
+}
+
 export interface SyncResult {
   mergedEntries: Record<string, DayEntry>;
   mergedAdjustments: Adjustment[];
-  conflicts: ConflictEntry[];
+  mergedSettings: Settings;
+  entryConflicts: ConflictEntry[];
+  settingsConflict: SettingsConflict | null;
 }
 
 declare global {
