@@ -144,7 +144,14 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
         scannerRef.current = new Html5Qrcode("qr-scanner");
         await scannerRef.current.start(
           { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 250, height: 250 } },
+          {
+            fps: 10,
+            qrbox: (viewfinderWidth, viewfinderHeight) => {
+              const size = Math.min(viewfinderWidth, viewfinderHeight) * 0.7;
+              return { width: size, height: size };
+            },
+            aspectRatio: 1,
+          },
           async (decodedText) => {
             // Prevent multiple triggers
             if (hasScanned.current) return;
