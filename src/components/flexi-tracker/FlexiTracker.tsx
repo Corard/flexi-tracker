@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
-import { Settings, Clock, ChevronRight } from "lucide-react";
+import { Settings, Clock, ChevronRight, Palmtree } from "lucide-react";
 import { useStorage } from "@/hooks/use-storage";
 import { useShiftKey } from "@/hooks/use-shift-key";
 import {
@@ -15,9 +15,10 @@ import {
   formatDurationDecimal,
   formatMinutes,
   formatMinutesDecimal,
+  calculateUsedLeaveDays,
 } from "@/lib/flexi-tracker-utils";
 import { cn } from "@/lib/utils";
-import type { DayEntry, AppState } from "@/types/flexi-tracker";
+import type { DayEntry, AppState, LeaveBalance } from "@/types/flexi-tracker";
 
 import { DayCard } from "./DayCard";
 import { WeekNav } from "./WeekNav";
@@ -65,7 +66,7 @@ export function FlexiTracker() {
   const fmtDuration = shiftHeld ? formatDurationDecimal : formatDuration;
   const fmtMinutes = shiftHeld ? formatMinutesDecimal : formatMinutes;
 
-  const { settings, entries, adjustments } = state;
+  const { settings, entries, adjustments, leaveBalance } = state;
 
   const weekDates = useMemo(
     () => getWeekDates(currentDate, settings.weekStartsOn),
@@ -124,6 +125,13 @@ export function FlexiTracker() {
     return total;
   }, [entries, settings, adjustments]);
 
+  const leaveStats = useMemo(() => {
+    if (!leaveBalance || leaveBalance.totalDays === 0) return null;
+    const used = calculateUsedLeaveDays(entries, leaveBalance);
+    const remaining = leaveBalance.totalDays - used;
+    return { used, remaining, total: leaveBalance.totalDays };
+  }, [entries, leaveBalance]);
+
   const updateEntry = (dateStr: string, entry: DayEntry | null) => {
     if (entry === null) {
       // Delete the entry entirely
@@ -142,6 +150,10 @@ export function FlexiTracker() {
     save({ ...state, settings: newSettings });
   };
 
+  const updateLeaveBalance = (newLeaveBalance: LeaveBalance | undefined) => {
+    save({ ...state, leaveBalance: newLeaveBalance });
+  };
+
   const addAdjustment = (adj: (typeof adjustments)[0]) => {
     save({ ...state, adjustments: [...adjustments, adj] });
   };
@@ -155,6 +167,7 @@ export function FlexiTracker() {
       settings: { ...DEFAULT_SETTINGS, ...data.settings },
       entries: data.entries || {},
       adjustments: data.adjustments || [],
+      leaveBalance: data.leaveBalance,
     };
     save(merged);
   };
@@ -275,43 +288,94 @@ export function FlexiTracker() {
           </div>
         </Card>
 
-        {/* Overall Flexi Balance */}
-        <Card
-          onClick={() => setShowAdjustments(true)}
-          className="p-5 cursor-pointer hover:bg-muted/50 transition-colors"
+        {/* Balance Cards */}
+        <div
+          className={cn("grid gap-4", leaveStats ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1")}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div
-                className={cn(
-                  "w-10 h-10 rounded-xl flex items-center justify-center",
-                  overallBalance >= 0
-                    ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400"
-                    : "bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400"
-                )}
-              >
-                <Clock className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-muted-foreground text-sm">Overall Flexi Balance</div>
+          {/* Overall Flexi Balance */}
+          <Card
+            onClick={() => setShowAdjustments(true)}
+            className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
                 <div
                   className={cn(
-                    "text-2xl font-bold",
+                    "w-10 h-10 rounded-xl flex items-center justify-center",
                     overallBalance >= 0
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-rose-600 dark:text-rose-400"
+                      ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400"
+                      : "bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400"
                   )}
                 >
-                  {fmtMinutes(overallBalance)}
+                  <Clock className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-muted-foreground text-sm">Flexi Balance</div>
+                  <div
+                    className={cn(
+                      "text-2xl font-bold",
+                      overallBalance >= 0
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-rose-600 dark:text-rose-400"
+                    )}
+                  >
+                    {fmtMinutes(overallBalance)}
+                  </div>
                 </div>
               </div>
+              <div className="text-muted-foreground text-sm flex items-center gap-1">
+                <ChevronRight className="h-4 w-4" />
+              </div>
             </div>
-            <div className="text-muted-foreground text-sm flex items-center gap-1">
-              Adjust
-              <ChevronRight className="h-4 w-4" />
-            </div>
-          </div>
-        </Card>
+          </Card>
+
+          {/* Annual Leave Balance */}
+          {leaveStats && (
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center",
+                      leaveStats.remaining > 0
+                        ? "bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400"
+                        : "bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400"
+                    )}
+                  >
+                    <Palmtree className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground text-sm">Annual Leave</div>
+                    <div
+                      className={cn(
+                        "text-2xl font-bold",
+                        leaveStats.remaining > 0
+                          ? "text-sky-600 dark:text-sky-400"
+                          : "text-rose-600 dark:text-rose-400"
+                      )}
+                    >
+                      {leaveStats.remaining % 1 === 0
+                        ? leaveStats.remaining
+                        : leaveStats.remaining.toFixed(1)}
+                      <span className="text-base font-normal text-muted-foreground">
+                        {" "}
+                        / {leaveStats.total}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-muted-foreground text-xs text-right">
+                  {leaveStats.used > 0 && (
+                    <span>
+                      {leaveStats.used % 1 === 0 ? leaveStats.used : leaveStats.used.toFixed(1)}{" "}
+                      used
+                    </span>
+                  )}
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground mt-8">
@@ -324,8 +388,10 @@ export function FlexiTracker() {
       <SettingsPanel
         open={showSettings}
         settings={settings}
+        leaveBalance={leaveBalance}
         appState={state}
         onChange={updateSettings}
+        onLeaveBalanceChange={updateLeaveBalance}
         onImport={importData}
         onClear={clearData}
         onClose={() => setShowSettings(false)}

@@ -75,6 +75,7 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
       entries: appState.entries,
       adjustments: appState.adjustments,
       settings: appState.settings,
+      leaveBalance: appState.leaveBalance,
       timestamp: Date.now(),
     };
   }, [appState]);
@@ -116,6 +117,7 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
         entries: result.mergedEntries,
         adjustments: result.mergedAdjustments,
         settings: result.mergedSettings,
+        leaveBalance: result.mergedLeaveBalance,
       });
       peerManager.current?.sendData(conn, createSyncComplete());
       setState((s) => ({ ...s, status: "complete" }));
@@ -328,6 +330,7 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
           entries: finalEntries,
           adjustments: state.syncResult.mergedAdjustments,
           settings: state.syncResult.mergedSettings,
+          leaveBalance: state.syncResult.mergedLeaveBalance,
         });
 
         if (activeConnection.current && peerManager.current) {
@@ -363,6 +366,7 @@ export function useP2PSync(appState: AppState, onMerge: (state: AppState) => voi
         entries: state.syncResult.mergedEntries,
         adjustments: state.syncResult.mergedAdjustments,
         settings: finalSettings,
+        leaveBalance: state.syncResult.mergedLeaveBalance,
       });
 
       if (activeConnection.current && peerManager.current) {
