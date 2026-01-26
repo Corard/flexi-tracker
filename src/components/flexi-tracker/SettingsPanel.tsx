@@ -11,16 +11,19 @@ import {
   ClipboardPaste,
   QrCode,
   ScanLine,
+  Palmtree,
 } from "lucide-react";
-import type { Settings, AppState, NonWorkingDayDisplay } from "@/types/flexi-tracker";
-import { FULL_DAYS, formatDuration } from "@/lib/flexi-tracker-utils";
+import type { Settings, AppState, NonWorkingDayDisplay, LeaveBalance } from "@/types/flexi-tracker";
+import { FULL_DAYS, formatDuration, getDefaultLeaveBalance } from "@/lib/flexi-tracker-utils";
 import { cn } from "@/lib/utils";
 
 interface SettingsPanelProps {
   open: boolean;
   settings: Settings;
+  leaveBalance?: LeaveBalance;
   appState: AppState;
   onChange: (settings: Settings) => void;
+  onLeaveBalanceChange: (leaveBalance: LeaveBalance | undefined) => void;
   onImport: (data: AppState) => void;
   onClear: () => void;
   onClose: () => void;
@@ -30,8 +33,10 @@ interface SettingsPanelProps {
 export function SettingsPanel({
   open,
   settings,
+  leaveBalance,
   appState,
   onChange,
+  onLeaveBalanceChange,
   onImport,
   onClear,
   onClose,
@@ -259,6 +264,94 @@ export function SettingsPanel({
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Annual Leave */}
+          <div className="pt-4 border-t">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Palmtree className="h-4 w-4 text-sky-500" />
+                Annual Leave
+              </label>
+              {!leaveBalance && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onLeaveBalanceChange(getDefaultLeaveBalance())}
+                >
+                  Enable
+                </Button>
+              )}
+            </div>
+
+            {leaveBalance && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-2">
+                    Allowance (days)
+                  </label>
+                  <Input
+                    type="number"
+                    value={leaveBalance.totalDays}
+                    onChange={(e) =>
+                      onLeaveBalanceChange({
+                        ...leaveBalance,
+                        totalDays: Math.max(0, parseFloat(e.target.value) || 0),
+                      })
+                    }
+                    step="0.5"
+                    min="0"
+                    max="365"
+                    className="w-24 text-center"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-2">Period</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={leaveBalance.periodStart}
+                      onChange={(e) =>
+                        onLeaveBalanceChange({
+                          ...leaveBalance,
+                          periodStart: e.target.value,
+                        })
+                      }
+                      className="flex-1"
+                    />
+                    <span className="text-muted-foreground">—</span>
+                    <Input
+                      type="date"
+                      value={leaveBalance.periodEnd}
+                      onChange={(e) =>
+                        onLeaveBalanceChange({
+                          ...leaveBalance,
+                          periodEnd: e.target.value,
+                        })
+                      }
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground"
+                  onClick={() => onLeaveBalanceChange(undefined)}
+                >
+                  Disable leave tracking
+                </Button>
+              </div>
+            )}
+
+            {!leaveBalance && (
+              <p className="text-xs text-muted-foreground">
+                Track annual leave by enabling this feature. Holiday entries within your leave
+                period will be subtracted automatically.
+              </p>
+            )}
           </div>
 
           {/* Sync with Another Device */}

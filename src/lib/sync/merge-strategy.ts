@@ -2,6 +2,7 @@ import type {
   DayEntry,
   Adjustment,
   Settings,
+  LeaveBalance,
   SyncPayload,
   ConflictEntry,
   SettingsConflict,
@@ -148,6 +149,18 @@ export function detectSettingsConflict(local: Settings, remote: Settings): Setti
   return { local, remote };
 }
 
+export function mergeLeaveBalance(
+  local: LeaveBalance | undefined,
+  remote: LeaveBalance | undefined
+): LeaveBalance | undefined {
+  // If both have leave balance configured, prefer local (most recent configuration)
+  // If only one has it, use that one
+  if (local && remote) {
+    return local;
+  }
+  return local || remote;
+}
+
 export function prepareSyncResult(
   localPayload: SyncPayload,
   remotePayload: SyncPayload
@@ -160,11 +173,16 @@ export function prepareSyncResult(
   );
   const mergedAdjustments = mergeAdjustments(localPayload.adjustments, remotePayload.adjustments);
   const settingsConflict = detectSettingsConflict(localPayload.settings, remotePayload.settings);
+  const mergedLeaveBalance = mergeLeaveBalance(
+    localPayload.leaveBalance,
+    remotePayload.leaveBalance
+  );
 
   return {
     mergedEntries,
     mergedAdjustments,
     mergedSettings: localPayload.settings, // Default to local, will be overridden if conflict resolved
+    mergedLeaveBalance,
     entryConflicts,
     settingsConflict,
   };
