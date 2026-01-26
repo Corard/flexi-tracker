@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
@@ -16,15 +16,17 @@ import {
   formatMinutes,
   formatMinutesDecimal,
   calculateUsedLeaveDays,
+  getCurrentTimeStr,
 } from "@/lib/flexi-tracker-utils";
 import { cn } from "@/lib/utils";
 import type { DayEntry, AppState, LeaveBalance } from "@/types/flexi-tracker";
 
-import { DayCard } from "./DayCard";
+import { DayCard, type DayCardRef } from "./DayCard";
 import { WeekNav } from "./WeekNav";
 import { SettingsPanel } from "./SettingsPanel";
 import { AdjustmentsPanel } from "./AdjustmentsPanel";
 import { SyncPanel } from "./SyncPanel";
+import { KeyboardShortcutsPanel } from "./KeyboardShortcutsPanel";
 import { ModeToggle } from "@/components/mode-toggle";
 
 export function FlexiTracker() {
@@ -33,35 +35,13 @@ export function FlexiTracker() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAdjustments, setShowAdjustments] = useState(false);
   const [showSync, setShowSync] = useState(false);
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [syncMode, setSyncMode] = useState<"host" | "scan">("host");
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
   const shiftHeld = useShiftKey();
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === "INPUT") return;
-      if (showSettings || showAdjustments) return;
-
-      if (e.key === "ArrowLeft") {
-        setCurrentDate((d) => {
-          const newDate = new Date(d);
-          newDate.setDate(newDate.getDate() - 7);
-          return newDate;
-        });
-      } else if (e.key === "ArrowRight") {
-        setCurrentDate((d) => {
-          const newDate = new Date(d);
-          newDate.setDate(newDate.getDate() + 7);
-          return newDate;
-        });
-      } else if (e.key === "t" || e.key === "T") {
-        setCurrentDate(new Date());
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showSettings, showAdjustments]);
+  // Refs for each day card
+  const dayCardRefs = useRef<(DayCardRef | null)[]>([]);
 
   const fmtDuration = shiftHeld ? formatDurationDecimal : formatDuration;
   const fmtMinutes = shiftHeld ? formatMinutesDecimal : formatMinutes;
@@ -72,6 +52,178 @@ export function FlexiTracker() {
     () => getWeekDates(currentDate, settings.weekStartsOn),
     [currentDate, settings.weekStartsOn]
   );
+
+  // Check if any preset menu is open
+  const isAnyPresetOpen = useCallback(() => {
+    return dayCardRefs.current.some((ref) => ref?.isPresetsOpen());
+  }, []);
+
+  // Get filtered visible days (matching the render logic)
+  const getVisibleDays = useCallback(() => {
+    return weekDates.filter((date) => {
+      if (settings.nonWorkingDayDisplay !== "hide") return true;
+      return settings.workingDays.includes(date.getDay());
+    });
+  }, [weekDates, settings.nonWorkingDayDisplay, settings.workingDays]);
+
+  // Get the index in weekDates for today
+  const getTodayIndex = useCallback(() => {
+    const todayStr = getDateStr(new Date());
+    const visibleDays = getVisibleDays();
+    return visibleDays.findIndex((d) => getDateStr(d) === todayStr);
+  }, [getVisibleDays]);
+
+  // Update entry helper (defined early for keyboard shortcuts)
+  const updateEntry = useCallback(
+    (dateStr: string, entry: DayEntry | null) => {
+      if (entry === null) {
+        const newEntries = { ...entries };
+        delete newEntries[dateStr];
+        save({ ...state, entries: newEntries });
+      } else {
+        save({
+          ...state,
+          entries: { ...entries, [dateStr]: entry },
+        });
+      }
+    },
+    [entries, save, state]
+  );
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't handle shortcuts when typing in inputs
+      if ((e.target as HTMLElement).tagName === "INPUT") return;
+      if ((e.target as HTMLElement).tagName === "TEXTAREA") return;
+
+      // Don't handle most shortcuts when a modal is open (except Escape)
+      const modalOpen = showSettings || showAdjustments || showSync || showKeyboardShortcuts;
+
+      // Handle Escape to close modals
+      if (e.key === "Escape") {
+        if (showKeyboardShortcuts) {
+          setShowKeyboardShortcuts(false);
+          return;
+        }
+        // Other modals handle their own Escape
+        return;
+      }
+
+      // Don't process other shortcuts when modals are open
+      if (modalOpen) return;
+
+      // Don't handle shortcuts when a preset menu is open (DayCard handles those)
+      if (isAnyPresetOpen()) return;
+
+      // ? - Open keyboard shortcuts panel
+      if (e.key === "?") {
+        e.preventDefault();
+        setShowKeyboardShortcuts(true);
+        return;
+      }
+
+      // Navigation shortcuts
+      if (e.key === "ArrowLeft") {
+        setCurrentDate((d) => {
+          const newDate = new Date(d);
+          newDate.setDate(newDate.getDate() - 7);
+          return newDate;
+        });
+        setSelectedDayIndex(null);
+        return;
+      }
+
+      if (e.key === "ArrowRight") {
+        setCurrentDate((d) => {
+          const newDate = new Date(d);
+          newDate.setDate(newDate.getDate() + 7);
+          return newDate;
+        });
+        setSelectedDayIndex(null);
+        return;
+      }
+
+      if (e.key === "t" || e.key === "T") {
+        setCurrentDate(new Date());
+        setSelectedDayIndex(null);
+        return;
+      }
+
+      // 1-7: Select day
+      const dayNum = parseInt(e.key);
+      if (dayNum >= 1 && dayNum <= 7) {
+        const visibleDays = getVisibleDays();
+        if (dayNum <= visibleDays.length) {
+          e.preventDefault();
+          setSelectedDayIndex(dayNum - 1);
+        }
+        return;
+      }
+
+      // P: Open preset menu for selected day (or today)
+      if (e.key === "p" || e.key === "P") {
+        e.preventDefault();
+        const targetIndex = selectedDayIndex ?? getTodayIndex();
+        if (targetIndex >= 0 && targetIndex < dayCardRefs.current.length) {
+          dayCardRefs.current[targetIndex]?.openPresets();
+        }
+        return;
+      }
+
+      // I: Clock in (today only)
+      if (e.key === "i" || e.key === "I") {
+        const todayStr = getDateStr(new Date());
+        const todayEntry = entries[todayStr];
+        // Only clock in if today is visible and not already clocked in
+        if (!todayEntry?.startTime) {
+          e.preventDefault();
+          updateEntry(todayStr, { ...todayEntry, startTime: getCurrentTimeStr() });
+        }
+        return;
+      }
+
+      // O: Clock out (today only)
+      if (e.key === "o" || e.key === "O") {
+        const todayStr = getDateStr(new Date());
+        const todayEntry = entries[todayStr];
+        // Only clock out if clocked in and not already clocked out
+        if (todayEntry?.startTime && !todayEntry?.endTime) {
+          e.preventDefault();
+          updateEntry(todayStr, { ...todayEntry, endTime: getCurrentTimeStr() });
+        }
+        return;
+      }
+
+      // ,: Open settings
+      if (e.key === ",") {
+        e.preventDefault();
+        setShowSettings(true);
+        return;
+      }
+
+      // A: Open adjustments
+      if (e.key === "a" || e.key === "A") {
+        e.preventDefault();
+        setShowAdjustments(true);
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    showSettings,
+    showAdjustments,
+    showSync,
+    showKeyboardShortcuts,
+    isAnyPresetOpen,
+    selectedDayIndex,
+    getTodayIndex,
+    getVisibleDays,
+    entries,
+    updateEntry,
+  ]);
 
   const weekStats = useMemo(() => {
     let worked = 0;
@@ -131,20 +283,6 @@ export function FlexiTracker() {
     const remaining = leaveBalance.totalDays - used;
     return { used, remaining, total: leaveBalance.totalDays };
   }, [entries, leaveBalance]);
-
-  const updateEntry = (dateStr: string, entry: DayEntry | null) => {
-    if (entry === null) {
-      // Delete the entry entirely
-      const newEntries = { ...entries };
-      delete newEntries[dateStr];
-      save({ ...state, entries: newEntries });
-    } else {
-      save({
-        ...state,
-        entries: { ...entries, [dateStr]: entry },
-      });
-    }
-  };
 
   const updateSettings = (newSettings: typeof settings) => {
     save({ ...state, settings: newSettings });
@@ -227,11 +365,12 @@ export function FlexiTracker() {
               if (settings.nonWorkingDayDisplay !== "hide") return true;
               return settings.workingDays.includes(date.getDay());
             })
-            .map((date) => {
+            .map((date, index) => {
               const key = getDateStr(date);
               const isWorkingDay = settings.workingDays.includes(date.getDay());
               const isToday = getDateStr(new Date()) === key;
               const isDisabled = !isWorkingDay && settings.nonWorkingDayDisplay === "disable";
+              const isSelected = selectedDayIndex === index;
 
               const yesterday = new Date(date);
               yesterday.setDate(yesterday.getDate() - 1);
@@ -241,12 +380,16 @@ export function FlexiTracker() {
               return (
                 <DayCard
                   key={key}
+                  ref={(el) => {
+                    dayCardRefs.current[index] = el;
+                  }}
                   date={date}
                   entry={entries[key] || {}}
                   expected={settings.expectedMinutesPerDay}
                   isWorkingDay={isWorkingDay}
                   isToday={isToday}
                   isDisabled={isDisabled}
+                  isSelected={isSelected}
                   rate={settings.nonWorkingDayRate}
                   yesterdayEntry={yesterdayEntry}
                   shiftHeld={shiftHeld}
@@ -379,8 +522,7 @@ export function FlexiTracker() {
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground mt-8">
-          All data stored locally | <Kbd>←</Kbd> <Kbd>→</Kbd> navigate weeks | <Kbd>T</Kbd> today |
-          Hold <Kbd>Shift</Kbd> for decimal
+          All data stored locally | Press <Kbd>?</Kbd> for keyboard shortcuts
         </div>
       </div>
 
@@ -413,6 +555,11 @@ export function FlexiTracker() {
         initialMode={syncMode}
         onMerge={handleSyncMerge}
         onClose={() => setShowSync(false)}
+      />
+
+      <KeyboardShortcutsPanel
+        open={showKeyboardShortcuts}
+        onClose={() => setShowKeyboardShortcuts(false)}
       />
     </div>
   );
