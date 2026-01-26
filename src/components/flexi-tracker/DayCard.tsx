@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Kbd } from "@/components/ui/kbd";
 import { Thermometer, Palmtree, Clock, Check, X, ClipboardCopy } from "lucide-react";
 import type { DayEntry, DayType, MenuItem } from "@/types/flexi-tracker";
 import {
@@ -27,10 +28,17 @@ interface DayCardProps {
   isWorkingDay: boolean;
   isToday: boolean;
   isDisabled: boolean;
+  isSelected: boolean;
   rate: number;
   yesterdayEntry?: DayEntry;
   shiftHeld: boolean;
   onChange: (entry: DayEntry) => void;
+}
+
+export interface DayCardRef {
+  openPresets: () => void;
+  closePresets: () => void;
+  isPresetsOpen: () => boolean;
 }
 
 const DayTypeIcon = ({ type }: { type: string }) => {
@@ -46,23 +54,39 @@ const DayTypeIcon = ({ type }: { type: string }) => {
   }
 };
 
-export function DayCard({
-  date,
-  entry,
-  expected,
-  isWorkingDay,
-  isToday,
-  isDisabled,
-  rate,
-  yesterdayEntry,
-  shiftHeld,
-  onChange,
-}: DayCardProps) {
+export const DayCard = forwardRef<DayCardRef, DayCardProps>(function DayCard(
+  {
+    date,
+    entry,
+    expected,
+    isWorkingDay,
+    isToday,
+    isDisabled,
+    isSelected,
+    rate,
+    yesterdayEntry,
+    shiftHeld,
+    onChange,
+  },
+  ref
+) {
   const [showPresets, setShowPresets] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [now, setNow] = useState(new Date());
   const dayType: DayType = entry?.dayType || "normal";
   const typeInfo = DAY_TYPES[dayType];
+
+  // Expose methods to parent via ref
+  useImperativeHandle(ref, () => ({
+    openPresets: () => {
+      if (!isDisabled) {
+        setSelectedIndex(0);
+        setShowPresets(true);
+      }
+    },
+    closePresets: () => setShowPresets(false),
+    isPresetsOpen: () => showPresets,
+  }));
 
   const fmtDuration = shiftHeld ? formatDurationDecimal : formatDuration;
   const fmtMinutes = shiftHeld ? formatMinutesDecimal : formatMinutes;
@@ -126,6 +150,7 @@ export function DayCard({
         type: "copy",
         label: "Copy yesterday",
         icon: "copy",
+        shortcut: "Y",
         action: copyFromYesterday,
       });
     }
@@ -134,42 +159,52 @@ export function DayCard({
         type: "normal",
         label: "Normal",
         icon: "check",
+        shortcut: "N",
         action: () => setDayType("normal"),
       },
       {
         type: "sick",
         label: "Sick Day",
         icon: "sick",
+        shortcut: "S",
         action: () => setDayType("sick"),
       },
       {
         type: "sick-half",
         label: "1/2 Sick",
         icon: "sick",
+        shortcut: "S",
+        shiftShortcut: true,
         action: () => setDayType("sick-half"),
       },
       {
         type: "holiday",
         label: "Holiday",
         icon: "holiday",
+        shortcut: "H",
         action: () => setDayType("holiday"),
       },
       {
         type: "holiday-half",
         label: "1/2 Holiday",
         icon: "holiday",
+        shortcut: "H",
+        shiftShortcut: true,
         action: () => setDayType("holiday-half"),
       },
       {
         type: "flexi",
         label: "Flexi Day",
         icon: "flexi",
+        shortcut: "F",
         action: () => setDayType("flexi"),
       },
       {
         type: "flexi-half",
         label: "1/2 Flexi",
         icon: "flexi",
+        shortcut: "F",
+        shiftShortcut: true,
         action: () => setDayType("flexi-half"),
       }
     );
@@ -178,6 +213,7 @@ export function DayCard({
         type: "clear",
         label: "Clear Day",
         icon: "clear",
+        shortcut: "X",
         action: clearDay,
       });
     }
@@ -195,24 +231,36 @@ export function DayCard({
     if (!showPresets) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Handle arrow navigation and standard keys
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
           setSelectedIndex((i) => (i + 1) % menuItems.length);
-          break;
+          return;
         case "ArrowUp":
           e.preventDefault();
           setSelectedIndex((i) => (i - 1 + menuItems.length) % menuItems.length);
-          break;
+          return;
         case "Enter":
         case " ":
           e.preventDefault();
           menuItems[selectedIndex]?.action();
-          break;
+          return;
         case "Escape":
           e.preventDefault();
           setShowPresets(false);
-          break;
+          return;
+      }
+
+      // Handle mnemonic shortcuts
+      const key = e.key.toUpperCase();
+      const matchingItem = menuItems.find(
+        (item) => item.shortcut === key && (item.shiftShortcut ? e.shiftKey : !e.shiftKey)
+      );
+
+      if (matchingItem) {
+        e.preventDefault();
+        matchingItem.action();
       }
     };
 
@@ -244,6 +292,7 @@ export function DayCard({
       className={cn(
         "p-4 transition-all duration-200 relative overflow-visible border",
         isToday && "ring-2 ring-primary/50 shadow-lg",
+        isSelected && !isToday && "ring-2 ring-primary/30",
         isDisabled && "opacity-50 pointer-events-none",
         dayType !== "normal" && typeInfo.color,
         dayType === "normal" && isWorkingDay && "bg-card border-border hover:shadow-md",
@@ -317,7 +366,7 @@ export function DayCard({
         {showPresets && (
           <Card className="absolute left-0 right-0 mt-0 z-50 shadow-lg gap-0 py-1">
             {menuItems.map((item, index) => {
-              const isSelected = selectedIndex === index;
+              const isItemSelected = selectedIndex === index;
 
               return (
                 <button
@@ -329,16 +378,19 @@ export function DayCard({
                     item.type === "copy" ? "flex flex-col gap-0.5" : "flex items-center gap-1.5",
                     item.type === "copy" && "text-blue-600",
                     item.type === "clear" && "text-destructive",
-                    isSelected && "bg-muted",
-                    !isSelected && "hover:bg-muted/50",
+                    isItemSelected && "bg-muted",
+                    !isItemSelected && "hover:bg-muted/50",
                     dayType === item.type && "font-medium"
                   )}
                 >
                   {item.type === "copy" && yesterdayEntry ? (
                     <>
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-4 shrink-0">{getMenuIcon(item.icon)}</span>
-                        <span>{item.label}</span>
+                      <span className="flex items-center justify-between w-full">
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-4 shrink-0">{getMenuIcon(item.icon)}</span>
+                          <span>{item.label}</span>
+                        </span>
+                        {item.shortcut && <Kbd>{item.shortcut}</Kbd>}
                       </span>
                       <span className="text-[10px] text-blue-400 pl-5">
                         {yesterdayEntry.startTime} - {yesterdayEntry.endTime}
@@ -347,7 +399,13 @@ export function DayCard({
                   ) : (
                     <>
                       <span className="w-4 shrink-0">{getMenuIcon(item.icon)}</span>
-                      <span className="truncate">{item.label}</span>
+                      <span className="truncate flex-1">{item.label}</span>
+                      {item.shortcut && (
+                        <span className="flex items-center gap-0.5 ml-auto">
+                          {item.shiftShortcut && <Kbd>⇧</Kbd>}
+                          <Kbd>{item.shortcut}</Kbd>
+                        </span>
+                      )}
                     </>
                   )}
                 </button>
@@ -444,4 +502,4 @@ export function DayCard({
       {showPresets && <div className="fixed inset-0 z-10" onClick={() => setShowPresets(false)} />}
     </Card>
   );
-}
+});

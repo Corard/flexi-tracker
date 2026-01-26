@@ -54,6 +54,8 @@ export interface MenuItem {
   type: string;
   label: string;
   icon?: string;
+  shortcut?: string;
+  shiftShortcut?: boolean;
   action: () => void;
 }
 
