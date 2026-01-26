@@ -402,7 +402,7 @@ export const DayCard = forwardRef<DayCardRef, DayCardProps>(function DayCard(
                       <span className="truncate flex-1">{item.label}</span>
                       {item.shortcut && (
                         <span className="flex items-center gap-0.5 ml-auto">
-                          {item.shiftShortcut && <Kbd>⇧</Kbd>}
+                          {item.shiftShortcut && <Kbd>Shift</Kbd>}
                           <Kbd>{item.shortcut}</Kbd>
                         </span>
                       )}
