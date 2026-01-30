@@ -37,16 +37,25 @@ export interface Adjustment {
   note: string;
 }
 
+export interface LeaveBalance {
+  totalDays: number;
+  periodStart: string; // YYYY-MM-DD
+  periodEnd: string; // YYYY-MM-DD
+}
+
 export interface AppState {
   settings: Settings;
   entries: Record<string, DayEntry>;
   adjustments: Adjustment[];
+  leaveBalance?: LeaveBalance;
 }
 
 export interface MenuItem {
   type: string;
   label: string;
   icon?: string;
+  shortcut?: string;
+  shiftShortcut?: boolean;
   action: () => void;
 }
 
@@ -55,6 +64,7 @@ export interface SyncPayload {
   entries: Record<string, DayEntry>;
   adjustments: Adjustment[];
   settings: Settings;
+  leaveBalance?: LeaveBalance;
   timestamp: number;
 }
 
@@ -73,6 +83,7 @@ export interface SyncResult {
   mergedEntries: Record<string, DayEntry>;
   mergedAdjustments: Adjustment[];
   mergedSettings: Settings;
+  mergedLeaveBalance?: LeaveBalance;
   entryConflicts: ConflictEntry[];
   settingsConflict: SettingsConflict | null;
 }

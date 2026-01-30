@@ -1,4 +1,4 @@
-import type { DayEntry, DayType, DayTypeInfo, Settings } from "@/types/flexi-tracker";
+import type { DayEntry, DayType, DayTypeInfo, Settings, LeaveBalance } from "@/types/flexi-tracker";
 
 export const DEFAULT_SETTINGS: Settings = {
   workingDays: [1, 2, 3, 4, 5],
@@ -8,10 +8,20 @@ export const DEFAULT_SETTINGS: Settings = {
   nonWorkingDayRate: 1,
 };
 
+export const getDefaultLeaveBalance = (): LeaveBalance => {
+  const year = new Date().getFullYear();
+  return {
+    totalDays: 0,
+    periodStart: `${year}-01-01`,
+    periodEnd: `${year}-12-31`,
+  };
+};
+
 export const DEFAULT_STATE = {
   settings: DEFAULT_SETTINGS,
   entries: {} as Record<string, DayEntry>,
   adjustments: [],
+  leaveBalance: undefined as LeaveBalance | undefined,
 };
 
 export const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -178,4 +188,33 @@ export const getEffectiveExpected = (
 export const getCurrentTimeStr = (): string => {
   const now = new Date();
   return `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+};
+
+export const calculateUsedLeaveDays = (
+  entries: Record<string, DayEntry>,
+  leaveBalance: LeaveBalance | undefined
+): number => {
+  if (!leaveBalance) return 0;
+
+  let usedDays = 0;
+  const periodStart = new Date(leaveBalance.periodStart);
+  const periodEnd = new Date(leaveBalance.periodEnd);
+
+  Object.entries(entries).forEach(([dateStr, entry]) => {
+    if (!entry?.dayType) return;
+
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const entryDate = new Date(year, month - 1, day);
+
+    // Check if entry is within leave period
+    if (entryDate < periodStart || entryDate > periodEnd) return;
+
+    if (entry.dayType === "holiday") {
+      usedDays += 1;
+    } else if (entry.dayType === "holiday-half") {
+      usedDays += 0.5;
+    }
+  });
+
+  return usedDays;
 };
