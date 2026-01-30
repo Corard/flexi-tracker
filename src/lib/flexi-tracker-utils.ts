@@ -157,11 +157,10 @@ export const calculateEffectiveWorked = (
       return expectedMinutes;
     case "sick-half":
     case "holiday-half":
+    case "flexi-half":
       return Math.floor(expectedMinutes / 2) + actualWorked;
     case "flexi":
       return 0;
-    case "flexi-half":
-      return actualWorked;
     default:
       return Math.floor(actualWorked * rateMultiplier);
   }
