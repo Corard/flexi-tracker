@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { Settings, AppState, NonWorkingDayDisplay, LeaveBalance } from "@/types/flexi-tracker";
 import { FULL_DAYS, formatDuration, getDefaultLeaveBalance } from "@/lib/flexi-tracker-utils";
+import { validateAppState } from "@/lib/validate-app-state";
 import { cn } from "@/lib/utils";
 
 interface SettingsPanelProps {
@@ -92,13 +93,19 @@ export function SettingsPanel({
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const data = JSON.parse(event.target?.result as string);
-        if (data && typeof data === "object") {
+        const raw = event.target?.result;
+        if (typeof raw !== "string") {
+          setImportError("Failed to read file");
+          return;
+        }
+        const data = JSON.parse(raw);
+        const error = validateAppState(data);
+        if (error) {
+          setImportError(error);
+        } else {
           setPendingImportData(data);
           setImportMode("confirm");
           setImportError(null);
-        } else {
-          setImportError("Invalid file format");
         }
       } catch (err) {
         setImportError("Failed to parse file: " + (err as Error).message);
@@ -111,12 +118,13 @@ export function SettingsPanel({
   const handlePasteImport = () => {
     try {
       const data = JSON.parse(pasteText);
-      if (data && typeof data === "object") {
+      const error = validateAppState(data);
+      if (error) {
+        setImportError(error);
+      } else {
         setPendingImportData(data);
         setImportMode("confirm");
         setImportError(null);
-      } else {
-        setImportError("Invalid JSON format");
       }
     } catch (err) {
       setImportError("Failed to parse JSON: " + (err as Error).message);
@@ -129,7 +137,6 @@ export function SettingsPanel({
       setImportMode(null);
       setPasteText("");
       setPendingImportData(null);
-      alert("Data imported successfully!");
     }
   };
 
