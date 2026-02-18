@@ -127,7 +127,12 @@ export const timeToMinutes = (time: string | null | undefined): number => {
   return h * 60 + m;
 };
 
-export const getDateStr = (date: Date): string => date.toISOString().split("T")[0];
+export const getDateStr = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  const day = date.getDate().toString().padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 export const getWeekDates = (date: Date, weekStartsOn: number): Date[] => {
   const d = new Date(date);
