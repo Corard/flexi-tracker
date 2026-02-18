@@ -88,22 +88,27 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
   const hasStarted = useRef(false);
   const hasScanned = useRef(false);
   const connectToPeerRef = useRef(sync.connectToPeer);
-  connectToPeerRef.current = sync.connectToPeer;
+
+  // Keep the ref in sync with the latest callback via useEffect (not during render)
+  useEffect(() => {
+    connectToPeerRef.current = sync.connectToPeer;
+  }, [sync.connectToPeer]);
 
   // Start in the correct mode when opened
+  const { status: syncStatus, startHosting, startScanning } = sync;
   useEffect(() => {
-    if (open && sync.status === "idle" && initialMode && !hasStarted.current) {
+    if (open && syncStatus === "idle" && initialMode && !hasStarted.current) {
       hasStarted.current = true;
       if (initialMode === "host") {
-        sync.startHosting();
+        startHosting();
       } else {
-        sync.startScanning();
+        startScanning();
       }
     }
     if (!open) {
       hasStarted.current = false;
     }
-  }, [open, sync.status, initialMode, sync.startHosting, sync.startScanning]);
+  }, [open, syncStatus, initialMode, startHosting, startScanning]);
 
   // Cleanup scanner on unmount or status change
   useEffect(() => {
@@ -188,12 +193,14 @@ export function SyncPanel({ open, appState, initialMode, onMerge, onClose }: Syn
     };
   }, [sync.status]);
 
-  // Reset resolutions when conflicts change
-  useEffect(() => {
+  // Reset resolutions when conflicts change (derived state pattern)
+  const [prevConflicts, setPrevConflicts] = useState(sync.syncResult?.entryConflicts);
+  if (sync.syncResult?.entryConflicts !== prevConflicts) {
+    setPrevConflicts(sync.syncResult?.entryConflicts);
     if (sync.syncResult?.entryConflicts) {
       setEntryResolutions(new Map());
     }
-  }, [sync.syncResult?.entryConflicts]);
+  }
 
   const handleClose = () => {
     sync.reset();
