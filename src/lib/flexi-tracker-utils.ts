@@ -88,11 +88,13 @@ export const formatMinutesDecimal = (mins: number): string => {
 
 export const formatDuration = (mins: number): string => {
   if (mins === 0) return "0h 0m";
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
+  const abs = Math.abs(mins);
+  const sign = mins < 0 ? "-" : "";
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  if (h === 0) return `${sign}${m}m`;
+  if (m === 0) return `${sign}${h}h`;
+  return `${sign}${h}h ${m}m`;
 };
 
 export const formatDurationDecimal = (mins: number): string => {
@@ -118,7 +120,7 @@ export const parseTime = (str: string): string | null => {
     if (h >= 0 && h <= 23 && m >= 0 && m <= 59)
       return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
   }
-  return str;
+  return null;
 };
 
 export const timeToMinutes = (time: string | null | undefined): number => {
@@ -202,8 +204,10 @@ export const calculateUsedLeaveDays = (
   if (!leaveBalance) return 0;
 
   let usedDays = 0;
-  const periodStart = new Date(leaveBalance.periodStart);
-  const periodEnd = new Date(leaveBalance.periodEnd);
+  const [startYear, startMonth, startDay] = leaveBalance.periodStart.split("-").map(Number);
+  const periodStart = new Date(startYear, startMonth - 1, startDay);
+  const [endYear, endMonth, endDay] = leaveBalance.periodEnd.split("-").map(Number);
+  const periodEnd = new Date(endYear, endMonth - 1, endDay);
 
   Object.entries(entries).forEach(([dateStr, entry]) => {
     if (!entry?.dayType) return;
